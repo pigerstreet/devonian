@@ -29,13 +29,15 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.jvm.optionals.getOrNull
 import kotlin.reflect.KClass
-import kotlin.reflect.full.hasAnnotation
 
 object EventBus {
     var totalTicks = 0
     var clientTicks = 0
     private val teamRegex = "^team_(\\d+)$".toRegex()
-    val events = ConcurrentHashMap<KClass<*>, MutableList<EventListener<Event>>>()
+    // keyed by the java class rather than the KClass: `event::class` allocates a fresh
+    // `ClassReference` on every call, and `post` runs for every packet, tick and frame
+    val events = ConcurrentHashMap<Class<*>, MutableList<EventListener<Event>>>()
+    private val prioComparator = Comparator.comparingInt<EventListener<Event>> { it.prio }
     private val entityTypes = mutableMapOf<Int, EntityType<*>>()
     private val entityPos = mutableMapOf<Int, Vec3>()
     var _internalSkipPing = Collections.newSetFromMap<Int>(ConcurrentHashMap())!!
@@ -316,36 +318,63 @@ object EventBus {
         }
     }
 
-    private fun removeImpl(T: KClass<*>, listener: EventListener<*>) {
+    // `hasAnnotation` goes through kotlin-reflect, which is slow enough to show up when the
+    // ~1.5k listeners are (re)registered on startup and on every area change. The java
+    // annotation API answers the same question, and the answer never changes per class.
+    private val threadedCache = ConcurrentHashMap<Class<*>, Boolean>()
+    private val orderedCache = ConcurrentHashMap<Class<*>, Boolean>()
+
+    private fun isThreaded(T: Class<*>): Boolean =
+        threadedCache.getOrPut(T) { T.isAnnotationPresent(Threaded::class.java) }
+
+    private fun isOrdered(T: Class<*>): Boolean =
+        orderedCache.getOrPut(T) { T.isAnnotationPresent(Ordered::class.java) }
+
+    private fun removeImpl(T: Class<*>, listener: EventListener<*>) {
         events[T]?.remove(listener)
     }
 
     fun remove(T: KClass<*>, listener: EventListener<*>) {
-        if (T.hasAnnotation<Threaded>()) removeImpl(T, listener)
-        else Scheduler.scheduleTask { removeImpl(T, listener) }
+        val j = T.java
+        if (isThreaded(j)) removeImpl(j, listener)
+        else Scheduler.scheduleTask { removeImpl(j, listener) }
     }
 
-    private fun addImpl(T: KClass<*>, listener: EventListener<Event>) {
+    private fun addImpl(T: Class<*>, listener: EventListener<Event>) {
         val arr = events.getOrPut(T) {
-            if (T.hasAnnotation<Threaded>()) CopyOnWriteArrayList()
+            if (isThreaded(T)) CopyOnWriteArrayList()
             else ArrayList()
         }
-        if (T.hasAnnotation<Ordered>()) {
-            var i = arr.binarySearch(listener, Comparator.comparingInt { it.prio })
+        if (isOrdered(T)) {
+            var i = arr.binarySearch(listener, prioComparator)
             if (i < 0) i = -(i + 1)
             arr.add(i, listener)
         } else arr.add(listener)
     }
 
     fun add(T: KClass<*>, listener: EventListener<Event>) {
-        if (T.hasAnnotation<Threaded>()) addImpl(T, listener)
-        else Scheduler.scheduleTask { addImpl(T, listener) }
+        val j = T.java
+        if (isThreaded(j)) addImpl(j, listener)
+        else Scheduler.scheduleTask { addImpl(j, listener) }
     }
 
-    @Suppress("UNCHECKED_CAST")
+    /** whether anything is listening for [T]; lets hot callers skip allocating the event at all */
+    fun hasListeners(T: Class<*>): Boolean = events[T]?.isNotEmpty() ?: false
+
     fun <T : Event> post(event: T) {
-        val listeners = events[event::class] ?: return
+        val listeners = events[event.javaClass] ?: return
         if (listeners.isEmpty()) return
+
+        // indexed rather than `forEach` so the common (non-threaded, ArrayList) case does not
+        // allocate an iterator per post
+        if (listeners is ArrayList) {
+            var i = 0
+            while (i < listeners.size) {
+                listeners[i].trigger(event)
+                i++
+            }
+            return
+        }
 
         listeners.forEach { cb ->
             cb.trigger(event)
