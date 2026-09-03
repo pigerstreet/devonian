@@ -65,7 +65,7 @@ object WitherShieldTimer : TextHudFeature(
                 } else {
                     str =
                         StringUtils.colorForNumber(ttl, cooldown) +
-                        "%.2fs".format(max(ttl, 0) * 0.05)
+                        "%.2f".format(max(ttl, 0) * 0.05)
                     if (SETTING_COMPACT_MODE.get()) {
                         setLine(str)
                         return@on
@@ -126,5 +126,5 @@ object WitherShieldTimer : TextHudFeature(
         isCooldownPending = false
     }
 
-    override fun getEditText(): List<String> = if (SETTING_COMPACT_MODE.get()) listOf("&a1.00s") else listOf("&6Shield: &aREADY")
+    override fun getEditText(): List<String> = if (SETTING_COMPACT_MODE.get()) listOf("&a1.00") else listOf("&6Shield: &aREADY")
 }
