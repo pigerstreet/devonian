@@ -13,7 +13,6 @@ import net.minecraft.client.renderer.rendertype.RenderType
 import net.minecraft.client.renderer.state.level.CameraRenderState
 import net.minecraft.world.level.LightLayer
 import net.minecraft.world.phys.shapes.VoxelShape
-import org.joml.Vector3d
 import java.awt.Color
 import kotlin.math.sqrt
 
@@ -43,11 +42,13 @@ object Render3DVertex {
             val y = faces[i + 1] + oy
             val z = faces[i + 2] + oz
 
-            val dir = Vector3d(x, y, z)
-            dir.mul(-0.01 / dir.length())
+            // nudge the vertex slightly toward the camera to avoid z-fighting; done with scalars
+            // rather than a Vector3d because this runs for every vertex of every shape, every frame
+            val len = sqrt(x * x + y * y + z * z)
+            val f = if (len == 0.0) 0.0 else -0.01 / len
 
             consumer
-                .addVertex(mat, (x + dir.x).toFloat(), (y + dir.y).toFloat(), (z + dir.z).toFloat())
+                .addVertex(mat, (x + x * f).toFloat(), (y + y * f).toFloat(), (z + z * f).toFloat())
                 .setColor(color.rgb)
         }
     }

@@ -4,7 +4,19 @@ import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.shapes.VoxelShape
 
 object ShapeUtils {
-    fun getFaces(shape: VoxelShape): FloatArray {
+    // `getFaces` is called once per shape per frame by the renderer, and rebuilding the face
+    // list every time is by far the most expensive thing it does. Vanilla hands out the same
+    // `VoxelShape` instance for a given block state, so the result is cached against it.
+    // `VoxelShape` overrides `equals` but not `hashCode`, so lookups are effectively by identity.
+    private const val FACE_CACHE_SIZE = 256
+    private val faceCache = object : LinkedHashMap<VoxelShape, FloatArray>(FACE_CACHE_SIZE, 0.75f, true) {
+        override fun removeEldestEntry(eldest: Map.Entry<VoxelShape, FloatArray>) = size > FACE_CACHE_SIZE
+    }
+
+    fun getFaces(shape: VoxelShape): FloatArray =
+        faceCache.getOrPut(shape) { computeFaces(shape) }
+
+    private fun computeFaces(shape: VoxelShape): FloatArray {
         val aabbs = shape.toAabbs()
 
         val xDict = mutableMapOf<Int, MutableList<AABB>>()
