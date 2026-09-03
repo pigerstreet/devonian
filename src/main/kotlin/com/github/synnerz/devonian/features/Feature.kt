@@ -352,10 +352,19 @@ open class Feature @JvmOverloads constructor(
     }
 
     init {
-        EventBus.on<AreaEvent>(::onAreaChange)
-        EventBus.on<SubAreaEvent>(::onSubAreaChange)
-        EventBus.on<WorldChangeEvent>(::onWorldChange)
+        // there are ~300 features, and each of these used to register a listener whether or not
+        // the subclass had anything to do on that event; only hook up the ones that are overridden
+        if (overrides("onAreaChange", AreaEvent::class.java)) EventBus.on<AreaEvent>(::onAreaChange)
+        if (overrides("onSubAreaChange", SubAreaEvent::class.java)) EventBus.on<SubAreaEvent>(::onSubAreaChange)
+        if (overrides("onWorldChange", WorldChangeEvent::class.java)) EventBus.on<WorldChangeEvent>(::onWorldChange)
     }
+
+    private fun overrides(name: String, param: Class<*>): Boolean =
+        try {
+            javaClass.getMethod(name, param).declaringClass !== Feature::class.java
+        } catch (_: NoSuchMethodException) {
+            true
+        }
 
     open fun onAreaChange(event: AreaEvent) {}
 
