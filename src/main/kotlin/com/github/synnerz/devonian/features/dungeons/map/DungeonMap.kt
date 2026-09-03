@@ -507,6 +507,8 @@ object DungeonMap : HudFeature(
         "Map Background Color",
         subcategory = "Colors",
     )
+    // hoisted out of `drawImpl`, which runs every frame
+    private val LEAP_IDS = setOf("SPIRIT_LEAP", "INFINITE_SPIRIT_LEAP")
     private val SETTING_MAP_PADDING = addDecimalSlider(
         "padding",
         0.12,
@@ -1046,9 +1048,7 @@ object DungeonMap : HudFeature(
             return
         }
 
-        val holdingLeap = minecraft.player!!.mainHandItem.let {
-            listOf("SPIRIT_LEAP", "INFINITE_SPIRIT_LEAP").contains(ItemUtils.skyblockId(it))
-        }
+        val holdingLeap = ItemUtils.skyblockId(minecraft.player!!.mainHandItem) in LEAP_IDS
 
         val shouldRenderName =
             if (SETTING_RENDER_NAMES_ONLY_LEAP.get()) holdingLeap

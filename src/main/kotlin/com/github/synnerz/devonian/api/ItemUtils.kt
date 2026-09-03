@@ -27,8 +27,19 @@ object ItemUtils {
         val petSoulbound: Boolean,
     )
 
+    /**
+     * The item's ExtraAttributes without the deep copy [extraAttributes] does. Reading these is
+     * common enough (every frame, or once per slot when scanning an inventory) that copying the
+     * whole tag tree to look at one key is worth avoiding.
+     *
+     * The returned tag belongs to the [ItemStack] — **never** mutate it. Use [extraAttributes]
+     * if you need to write.
+     */
+    fun extraAttributesView(itemStack: ItemStack): CompoundTag? =
+        itemStack.get(DataComponents.CUSTOM_DATA)?.tag
+
     fun skyblockId(itemStack: ItemStack): String? {
-        val nbt = extraAttributes(itemStack) ?: return null
+        val nbt = extraAttributesView(itemStack) ?: return null
         val itemId = nbt.getString("id")
         if (itemId.isEmpty) return null
         val sbId = itemId.get()
@@ -53,7 +64,7 @@ object ItemUtils {
     }
 
     fun uuid(itemStack: ItemStack): String? {
-        val uuid = extraAttributes(itemStack)?.getString("uuid") ?: return null
+        val uuid = extraAttributesView(itemStack)?.getString("uuid") ?: return null
         if (uuid.isEmpty) return null
 
         return uuid.get()
