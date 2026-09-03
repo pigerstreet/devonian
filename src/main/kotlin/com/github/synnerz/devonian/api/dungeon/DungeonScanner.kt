@@ -13,6 +13,7 @@ import com.github.synnerz.devonian.api.events.EventBus
 import com.github.synnerz.devonian.api.events.TickEvent
 import com.github.synnerz.devonian.features.dungeons.map.DungeonMap
 import com.google.gson.Gson
+import net.minecraft.core.BlockPos
 import net.minecraft.tags.FluidTags
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.SlabBlock
@@ -57,6 +58,7 @@ object DungeonScanner {
     private var foundEntrance = 20
     private var wasInEntrance = false
 
+    private val warnedRegistries = mutableSetOf<String>()
     private val secretRegex = "\\b(\\d+)/(\\d+) Secrets".toRegex()
     private val roomSecretsRegex = "^RoomSecrets\\[(\\d+)/(\\d+), (\\d+)]$".toRegex()
 
@@ -75,11 +77,14 @@ object DungeonScanner {
     }
 
     fun getHighestY(x: Int, z: Int): Int {
-        WorldUtils.world ?: return -1
+        val world = WorldUtils.world ?: return -1
         var height = 0
 
+        // a column walk of up to 257 lookups, run for every unscanned position every tick, so
+        // reuse one mutable position instead of allocating a BlockPos per block
+        val pos = BlockPos.MutableBlockPos()
         for (idx in 256 downTo 0) {
-            val blockState = WorldUtils.getBlockState(x, idx, z)
+            val blockState = world.getBlockState(pos.set(x, idx, z))
             val block = blockState?.block ?: continue
 
             if (blockState.isAir || block == Blocks.GOLD_BLOCK) continue
@@ -107,7 +112,10 @@ object DungeonScanner {
         val result = LegacyRegistry.BLOCKS[registryName]
 
         // TODO: either remove or make it part of debug tools
-        if (result == null) println("Devonian\$DungeonScanner[state=\"Could not find registry\", name=\"$registryName\"]")
+        // reached ~129 times per room component per tick while scanning, so an unmapped block
+        // used to spam the console (and stall the client thread) for the whole run; log it once
+        if (result == null && warnedRegistries.add(registryName))
+            println("Devonian\$DungeonScanner[state=\"Could not find registry\", name=\"$registryName\"]")
         if (debug) println("Devonian\$DebugScanner[registry=\"$registryName\"]")
 
         return result
@@ -115,20 +123,24 @@ object DungeonScanner {
 
     @JvmOverloads
     fun hashCeil(x: Int, z: Int, debug: Boolean = false): Int {
-        var str = ""
+        // this runs per room component per tick while scanning; `str += blockId` in the loop
+        // allocated a new String on each of the 129 iterations. Same resulting hash, one buffer.
+        val str = StringBuilder(160)
+        val world = WorldUtils.world ?: return str.toString().hashCode()
+        val pos = BlockPos.MutableBlockPos()
 
         for (idx in 140 downTo 12) {
-            val blockState = WorldUtils.getBlockState(x, idx, z) ?: continue
+            val blockState = world.getBlockState(pos.set(x, idx, z)) ?: continue
             val block = blockState.block ?: continue
             val blockId = getLegacyId(blockState, debug) ?: continue
             if (block == Blocks.IRON_BARS || block == Blocks.CHEST) {
-                str += "0"
+                str.append('0')
                 continue
             }
-            str += blockId
+            str.append(blockId)
         }
 
-        return str.hashCode()
+        return str.toString().hashCode()
     }
 
     private fun checkDoorState() {

@@ -16,6 +16,7 @@ import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.chunk.LevelChunk
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.floor
 
@@ -94,9 +95,13 @@ object WorldUtils {
         return getBlockId(block)
     }
 
-    fun registryName(block: Block): String {
+    // blocks are singletons and their registry name never changes, but the dungeon scanner asks
+    // for it ~129 times per room component per tick, so build each string only once
+    private val registryNames = ConcurrentHashMap<Block, String>()
+
+    fun registryName(block: Block): String = registryNames.getOrPut(block) {
         val registry = BuiltInRegistries.BLOCK.getKey(block)
-        return "${registry.namespace}:${registry.path}"
+        "${registry.namespace}:${registry.path}"
     }
 
     fun raycast(
