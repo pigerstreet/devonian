@@ -111,10 +111,11 @@ object WorldUtils {
     ): BlockPos? {
         val w = world ?: return null
 
+        // DDA reuses one mutable position, so the hit has to be copied before it leaves here
         for (bp in DDA(x, y, z, dx, dy, dz)) {
             val bs = w.getBlockState(bp)
-            if (firstBlock && !bs.isAir) return bp
-            if (!BlockTypes.AirLike.contains(bs.block)) return bp
+            if (firstBlock && !bs.isAir) return bp.immutable()
+            if (!BlockTypes.AirLike.contains(bs.block)) return bp.immutable()
         }
 
         return null

@@ -6,6 +6,13 @@ import kotlin.math.floor
 import kotlin.math.sign
 import kotlin.math.sqrt
 
+/**
+ * WARNING: nextElement hands back the same mutable position every step, so it is only valid until
+ * the next one. Anything that keeps a step past that must call `immutable()` on it - see
+ * WorldUtils.raycast, the only caller. Ray marching allocated a BlockPos per block boundary
+ * crossed otherwise - averaged over look directions a 57 block etherwarp ray crosses 88 of them,
+ * and EtherwarpOverlay casts up to two rays a frame.
+ */
 class DDA(x: Double, y: Double, z: Double, dx: Double, dy: Double, dz: Double) :
     Enumeration<BlockPos> {
     private var x = floor(x).toInt()
@@ -43,8 +50,10 @@ class DDA(x: Double, y: Double, z: Double, dx: Double, dy: Double, dz: Double) :
         return t <= mag
     }
 
+    private val cursor = BlockPos.MutableBlockPos()
+
     override fun nextElement(): BlockPos {
-        val bp = BlockPos(x, y, z)
+        val bp = cursor.set(x, y, z)
 
         if (tmx < tmy && tmx < tmz) {
             x += sx
