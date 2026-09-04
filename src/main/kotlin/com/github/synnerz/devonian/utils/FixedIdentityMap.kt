@@ -7,7 +7,8 @@ class FixedIdentityMap<K, V>(val maxSize: Int) : MutableMap<K, V> {
         }
     }
 
-    override val size: Int = delegate.size
+    // was a val, so it captured the delegate's size at construction and stayed 0 forever
+    override val size: Int get() = delegate.size
     override val keys: MutableSet<K> get() = throw UnsupportedOperationException("lazy")
     override val values: MutableCollection<V> = delegate.values
     override val entries: MutableSet<MutableMap.MutableEntry<K, V>> get() = throw UnsupportedOperationException("lazy")

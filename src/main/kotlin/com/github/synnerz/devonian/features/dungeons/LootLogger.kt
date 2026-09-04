@@ -294,7 +294,8 @@ object LootLogger : Feature(
         // kismet feather
         if (slot == 50) {
             val lore = ItemUtils.lore(itemStack)
-            val hasKismet = lore?.last()?.contains("You already rerolled a chest!") ?: false
+            // an item can carry a LORE component with no lines, and last() throws on an empty list
+            val hasKismet = lore?.lastOrNull()?.contains("You already rerolled a chest!") ?: false
             chestData.hasRerolled = hasKismet
             scan = false
             return
