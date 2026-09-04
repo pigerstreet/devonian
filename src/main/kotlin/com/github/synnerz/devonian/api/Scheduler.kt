@@ -5,9 +5,11 @@ import com.github.synnerz.devonian.api.events.EventBus
 import kotlinx.atomicfu.atomic
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.Executors
 import java.util.concurrent.PriorityBlockingQueue
 import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.ScheduledThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 object Scheduler {
     private val taskComp = compareBy<Task>({ it.delay }, { it.id })
@@ -19,7 +21,29 @@ object Scheduler {
     private val beforePacketTasks = ConcurrentLinkedQueue<() -> Unit>()
     private val afterPacketTasks = ConcurrentLinkedQueue<() -> Unit>()
 
-    val schedulePool: ScheduledExecutorService = Executors.newScheduledThreadPool(0)
+    /**
+     * A repeating task that throws is dropped from the schedule and never runs again, with nothing
+     * logged - so one IO error could silently stop config autosaves, price refreshes or the party
+     * poll for the rest of the session. Catch per run instead, so the next tick still happens.
+     */
+    val schedulePool: ScheduledExecutorService = object : ScheduledThreadPoolExecutor(0) {
+        private fun guard(cb: Runnable) = Runnable {
+            try {
+                cb.run()
+            } catch (e: Throwable) {
+                println("Devonian\$Scheduler: repeating task threw, keeping it scheduled")
+                e.printStackTrace()
+            }
+        }
+
+        override fun scheduleWithFixedDelay(
+            command: Runnable, initialDelay: Long, delay: Long, unit: TimeUnit
+        ): ScheduledFuture<*> = super.scheduleWithFixedDelay(guard(command), initialDelay, delay, unit)
+
+        override fun scheduleAtFixedRate(
+            command: Runnable, initialDelay: Long, period: Long, unit: TimeUnit
+        ): ScheduledFuture<*> = super.scheduleAtFixedRate(guard(command), initialDelay, period, unit)
+    }
 
     data class Task(var delay: Int, val cb: () -> Unit, val id: Int)
 
