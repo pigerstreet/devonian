@@ -38,7 +38,7 @@ object GolemWaypoint : Feature(
 
     override fun initialize() {
         on<TabUpdateEvent> { event ->
-            if (Location.subarea == null) return@on
+            val subarea = Location.subarea ?: return@on
             val ( stage ) = event.matches(protectorRegex) ?: return@on
             val idx = golemStages.indexOf(stage)
             if (currentStage != idx)
@@ -49,7 +49,7 @@ object GolemWaypoint : Feature(
             }
 
             currentStage = idx
-            delegateScan = !Location.subarea!!.contains("dragon's nest")
+            delegateScan = !subarea.contains("dragon's nest")
             if (delegateScan) return@on
 
             findPos()

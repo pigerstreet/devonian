@@ -193,13 +193,13 @@ object KeyPickup : Feature(
             val idx = comp.getRoomIdx()
             if (idx !in 0..35) return@on
 
-            currentKeyRoom = DungeonScanner.rooms[idx]
-            currentKeyRoom ?: return@on
-            val roomWaypoints = currentKeyRoom!!.roomID?.let {
+            val keyRoom = DungeonScanner.rooms[idx] ?: return@on
+            currentKeyRoom = keyRoom
+            val roomWaypoints = keyRoom.roomID?.let {
                 DungeonWaypoints.waypointsData[it]?.waypoints?.get(DungeonWaypoints.WaypointType.ESSENCE)
             } ?: return@on
             if (roomWaypoints.any {
-                val ( dx, dz ) = currentKeyRoom!!.fromComp(it.x, it.z) ?: return@any false
+                val ( dx, dz ) = keyRoom.fromComp(it.x, it.z) ?: return@any false
                 val dist = abs(dx - x) + abs(dz - z)
 
                 dist <= 3

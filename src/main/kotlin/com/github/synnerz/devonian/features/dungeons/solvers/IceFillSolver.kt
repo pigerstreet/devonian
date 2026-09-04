@@ -91,13 +91,13 @@ object IceFillSolver : Feature(
     private var inIce = false
     private var iceRoom: DungeonRoom? = null
 
-    private fun onBlock(pos: BlockPos, state: BlockState): Pair<Boolean, IcePlatform>? {
+    private fun onBlock(room: DungeonRoom, pos: BlockPos, state: BlockState): Pair<Boolean, IcePlatform>? {
         platforms.forEach {
-            if (!it.contains(iceRoom!!, pos.x, pos.y, pos.z)) return@forEach
+            if (!it.contains(room, pos.x, pos.y, pos.z)) return@forEach
             if (state.block == Blocks.PACKED_ICE) {
-                if (it.removeBlock(iceRoom!!, pos.x, pos.z)) return Pair(true, it)
+                if (it.removeBlock(room, pos.x, pos.z)) return Pair(true, it)
             } else if (state.isAir) {
-                it.reset(iceRoom!!)
+                it.reset(room)
                 return Pair(false, it)
             }
         }
@@ -124,22 +124,24 @@ object IceFillSolver : Feature(
             when (val packet = event.packet) {
                 is ClientboundBlockUpdatePacket -> {
                     Scheduler.scheduleTask {
-                        onBlock(packet.pos, packet.blockState)?.let {
-                            it.second.solve(iceRoom!!, !SETTING_ALLOW_WALL_START.get(), it.first)
+                        val room = iceRoom ?: return@scheduleTask
+                        onBlock(room, packet.pos, packet.blockState)?.let {
+                            it.second.solve(room, !SETTING_ALLOW_WALL_START.get(), it.first)
                         }
                     }
                 }
 
                 is ClientboundSectionBlocksUpdatePacket -> {
                     Scheduler.scheduleTask {
+                        val room = iceRoom ?: return@scheduleTask
                         val update = linkedMapOf<IcePlatform, Boolean>()
                         packet.runUpdates { pos, state ->
-                            onBlock(pos, state)?.let {
+                            onBlock(room, pos, state)?.let {
                                 update.merge(it.second, it.first, Boolean::and)
                             }
                         }
                         update.forEach {
-                            it.key.solve(iceRoom!!, !SETTING_ALLOW_WALL_START.get(), it.value)
+                            it.key.solve(room, !SETTING_ALLOW_WALL_START.get(), it.value)
                         }
                     }
                 }
