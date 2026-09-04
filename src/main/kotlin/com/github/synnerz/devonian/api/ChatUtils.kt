@@ -5,6 +5,7 @@ import com.github.synnerz.devonian.api.events.TickEvent
 import com.github.synnerz.devonian.features.misc.chat.CompactChatComponent
 import com.github.synnerz.devonian.Devonian
 import com.github.synnerz.devonian.mixin.accessor.ChatComponentAccessor
+import com.github.synnerz.devonian.utils.StringUtils.clearCodes
 import net.fabricmc.fabric.impl.command.client.ClientCommandInternals
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.components.ChatComponent
@@ -111,8 +112,11 @@ object ChatUtils {
         val textRenderer = Minecraft.getInstance().font
         val ww = Devonian.minecraft.options.chatWidth()
         val chatWidth = ChatComponent.getWidth(ww.get())
-        val textWidth = textRenderer.width(text)
-        if (textWidth >= chatWidth) return text
+        // the colour codes never render, so measuring them made the text look far wider than it is
+        val textWidth = textRenderer.width(text.clearCodes())
+        // this returns padding, and the caller appends the text after it - returning the text here
+        // printed it twice
+        if (textWidth >= chatWidth) return ""
 
         val padding = (chatWidth - textWidth) / 2f
         val paddingBuilder = StringBuilder().apply {
