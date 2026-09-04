@@ -53,7 +53,7 @@ object Render3DImmediate : IRender3D {
 
         if (translate) {
             poseStack.pushPose()
-            poseStack.translate(camera.pos.reverse())
+            poseStack.translate(-camera.pos.x, -camera.pos.y, -camera.pos.z)
         }
 
         Render3DState.renderWireframeShape(shape, ox, oy, oz, color, lineWidth, phase)
@@ -77,7 +77,7 @@ object Render3DImmediate : IRender3D {
 
         if (translate) {
             poseStack.pushPose()
-            poseStack.translate(camera.pos.reverse())
+            poseStack.translate(-camera.pos.x, -camera.pos.y, -camera.pos.z)
         }
 
         Render3DState.renderFilledBox(x, y, z, w, h, color, phase, wz, centered)
@@ -102,7 +102,7 @@ object Render3DImmediate : IRender3D {
 
         if (translate) {
             poseStack.pushPose()
-            poseStack.translate(camera.pos.reverse())
+            poseStack.translate(-camera.pos.x, -camera.pos.y, -camera.pos.z)
         }
 
         Render3DState.renderWireframeBox(x, y, z, w, h, color, lineWidth, phase, wz, centered)
@@ -149,7 +149,7 @@ object Render3DImmediate : IRender3D {
         if (color.alpha == 0) return
 
         poseStack.pushPose()
-        if (translate) poseStack.translate(camera.pos.reverse())
+        if (translate) poseStack.translate(-camera.pos.x, -camera.pos.y, -camera.pos.z)
         poseStack.translate(x, y, z)
 
         Render3DState.renderBeamInner(color, phase, h)
@@ -166,7 +166,7 @@ object Render3DImmediate : IRender3D {
     ) {
         if (translate) {
             poseStack.pushPose()
-            poseStack.translate(camera.pos.reverse())
+            poseStack.translate(-camera.pos.x, -camera.pos.y, -camera.pos.z)
         }
 
         Render3DState.renderLines(opaque, phase, supplier)
@@ -182,7 +182,7 @@ object Render3DImmediate : IRender3D {
     ) {
         if (translate) {
             poseStack.pushPose()
-            poseStack.translate(camera.pos.reverse())
+            poseStack.translate(-camera.pos.x, -camera.pos.y, -camera.pos.z)
         }
 
         Render3DState.renderLineStrip(opaque, phase, supplier)
