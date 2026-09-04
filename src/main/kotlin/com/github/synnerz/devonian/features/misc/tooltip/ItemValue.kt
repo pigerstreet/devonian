@@ -19,6 +19,9 @@ object ItemValue : Feature(
     "Shows the value of the currently hovered item in lore.",
     subcategory = "Tooltip",
 ) {
+    private val countRegex = "x\\d+".toRegex()
+    private val clearNameRegex = "([A-z' ]+)".toRegex()
+
     override fun initialize() {
         on<TooltipRenderEvent> { event ->
             val item = event.item ?: return@on
@@ -85,13 +88,13 @@ object ItemValue : Feature(
     }
 
     private fun name(itemStack: ItemStack): String? {
-        val name = itemStack.customName?.string?.replace("x\\d+".toRegex(), "") ?: return null
+        val name = itemStack.customName?.string?.replace(countRegex, "") ?: return null
         val reforge = ItemUtils.extraAttributes(itemStack)?.getString("modifier")
-        var clearName = "([A-z' ]+)".toRegex().find(name)?.value ?: return null
+        var clearName = clearNameRegex.find(name)?.value ?: return null
 
-        clearName = clearName.uppercase().replace("\'".toRegex(), "")
+        clearName = clearName.uppercase().replace("'", "")
         reforge?.getOrNull()?.let { clearName = clearName.replace(it.uppercase(), "") }
 
-        return clearName.trim().replace(" ".toRegex(), "_")
+        return clearName.trim().replace(" ", "_")
     }
 }

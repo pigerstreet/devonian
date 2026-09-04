@@ -27,6 +27,14 @@ object TriviaSolver : Feature(
         return super.createRequirements() + listOf(Stages.Clear.isActiveState)
     }
 
+    private val answerRegex = "^ *([ⓐⓑⓒ]) (.*)$".toRegex()
+    private val introRegex =
+        "^\\[STATUE] Oruo the Omniscient: I am Oruo the Omniscient\\. I have lived many lives\\. I have learned all there is to know\\.$".toRegex()
+    private val correctRegex = "^\\[STATUE] Oruo the Omniscient: \\w+ answered Question #\\d+ correctly!$".toRegex()
+    private val finalCorrectRegex = "^\\[STATUE] Oruo the Omniscient: \\w+ answered the final question correctly!$".toRegex()
+    private val yikesRegex = "^\\[STATUE] Oruo the Omniscient: Yikes$".toRegex()
+    private val questionRegex = "^ *(.*\\?)$".toRegex()
+
     private val solutions = mapOf(
         "What is the status of The Watcher?" to listOf("Stalker"),
         "What is the status of Bonzo?" to listOf("New Necromancer"),
@@ -124,7 +132,7 @@ object TriviaSolver : Feature(
         }
 
         on<ModifyChatEvent> { event ->
-            event.matches("^ *([ⓐⓑⓒ]) (.*)$".toRegex())?.let {
+            event.matches(answerRegex)?.let {
                 if (solution == null) return@on
                 val ( type, msg ) = it
 
@@ -138,17 +146,17 @@ object TriviaSolver : Feature(
                 return@on
             }
 
-            event.matches("^\\[STATUE] Oruo the Omniscient: I am Oruo the Omniscient\\. I have lived many lives\\. I have learned all there is to know\\.$".toRegex())?.let {
+            event.matches(introRegex)?.let {
                 enteredAt = EventBus.serverTicks()
                 return@on
             }
 
-            event.matches("^\\[STATUE] Oruo the Omniscient: \\w+ answered Question #\\d+ correctly!$".toRegex())?.let {
+            event.matches(correctRegex)?.let {
                 resetSolution()
                 return@on
             }
 
-            event.matches("^\\[STATUE] Oruo the Omniscient: \\w+ answered the final question correctly!$".toRegex())?.let {
+            event.matches(finalCorrectRegex)?.let {
                 if (!PuzzleTimers.isEnabled()) return@on
                 val time = (EventBus.serverTicks() - enteredAt) * 0.05
                 val seconds = "%.2fs".format(time)
@@ -157,12 +165,12 @@ object TriviaSolver : Feature(
                 return@on
             }
 
-            event.matches("^\\[STATUE] Oruo the Omniscient: Yikes$".toRegex())?.let {
+            event.matches(yikesRegex)?.let {
                 resetSolution()
                 return@on
             }
 
-            val match = event.matches("^ *(.*\\?)$".toRegex()) ?: return@on
+            val match = event.matches(questionRegex) ?: return@on
             var question = match[0]
 
             if (question == "What SkyBlock year is it?") {

@@ -20,9 +20,11 @@ object NoAbilityCdSound : Feature(
         "No CD Message"
     )
 
+    private val cooldownRegex = "^This ability is on cooldown for \\d+s.$".toRegex()
+
     override fun initialize() {
         on<ChatEvent> { event ->
-            event.matches("^This ability is on cooldown for \\d+s.$".toRegex()) ?: return@on
+            event.matches(cooldownRegex) ?: return@on
             event.cancel()
         }.setEnabled(SETTING_NO_MESSAGE.state)
 

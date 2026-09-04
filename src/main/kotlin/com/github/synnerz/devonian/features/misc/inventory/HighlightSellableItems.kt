@@ -21,6 +21,8 @@ object HighlightSellableItems : Feature(
         "Sellable Highlight Color",
     )
     // yoink from skytils <https://github.com/Skytils/SkytilsMod/blob/618bc6d5c03fb026ebbd27ed45484d9fc698138a/mod/src/main/kotlin/gg/skytils/skytilsmod/features/impl/misc/ItemFeatures.kt#L222-L232>
+    private val countRegex = " x\\d+".toRegex()
+
     private val itemNames = setOf(
         "Defuse Kit",
         "Lever",
@@ -69,7 +71,7 @@ object HighlightSellableItems : Feature(
 
                 val itemName = itemStack.customName?.string
                 if (itemName != null) {
-                    if (itemNames.contains(itemName.replace(" x\\d+".toRegex(), ""))) {
+                    if (itemNames.contains(itemName.replace(countRegex, ""))) {
                         slotsToHighlight.add(idx)
                         return@forEach
                     }

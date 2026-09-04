@@ -36,12 +36,14 @@ object TriviaSplits : TextHudFeature(
         "",
         "Show In Boss",
     )
+    private val finalCorrectRegex =
+        "^\\[STATUE] Oruo the Omniscient: \\w+ answered the final question correctly!$".toRegex()
     private var sent = false
 
     override fun initialize() {
         on<ChatEvent> { event ->
             Stages.QuizSplits.onChat(event.message)
-            if (event.matches("^\\[STATUE] Oruo the Omniscient: \\w+ answered the final question correctly!$".toRegex()) == null) return@on
+            if (event.matches(finalCorrectRegex) == null) return@on
             if (sent) return@on
 
             ChatUtils.sendMessage(
