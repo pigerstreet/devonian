@@ -3,6 +3,7 @@ package com.github.synnerz.devonian.mixin;
 import com.github.synnerz.devonian.Devonian;
 import com.github.synnerz.devonian.api.events.*;
 import com.github.synnerz.devonian.features.misc.DisableGlassPaneHighlight;
+import com.github.synnerz.devonian.api.events.EventBus;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -89,9 +90,11 @@ public abstract class AbstractContainerScreenMixin {
         )
     )
     private void devonian$drawSlots(AbstractContainerScreen instance, GuiGraphicsExtractor carry, Slot newCount, int icon, int seed, Operation<Void> original) {
-        if (new RenderSlotEvent(newCount, carry, instance).post()) return;
+        if (EventBus.INSTANCE.hasListeners(RenderSlotEvent.class)
+                && new RenderSlotEvent(newCount, carry, instance).post()) return;
         original.call(instance, carry, newCount, icon, seed);
-        new PostRenderSlotEvent(newCount, carry, instance).post();
+        if (EventBus.INSTANCE.hasListeners(PostRenderSlotEvent.class))
+            new PostRenderSlotEvent(newCount, carry, instance).post();
     }
 
     @Inject(

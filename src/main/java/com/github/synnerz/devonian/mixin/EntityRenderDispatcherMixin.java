@@ -2,6 +2,7 @@ package com.github.synnerz.devonian.mixin;
 
 import com.github.synnerz.devonian.api.events.PreExtractRenderEntityEvent;
 import com.github.synnerz.devonian.api.events.PreRenderEntityEvent;
+import com.github.synnerz.devonian.api.events.EventBus;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
@@ -22,6 +23,7 @@ public class EntityRenderDispatcherMixin {
             at = @At("HEAD")
     )
     private <S extends EntityRenderState> void devonian$preRenderEntity(S renderState, CameraRenderState camera, double x, double y, double z, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CallbackInfo ci) {
+        if (!EventBus.INSTANCE.hasListeners(PreRenderEntityEvent.class)) return;
         new PreRenderEntityEvent(renderState, camera, poseStack, submitNodeCollector).post();
     }
 
@@ -31,6 +33,7 @@ public class EntityRenderDispatcherMixin {
         cancellable = true
     )
     private void devonian$preExtractRenderEntity(Entity entity, float f, CallbackInfoReturnable<EntityRenderState> cir) {
+        if (!EventBus.INSTANCE.hasListeners(PreExtractRenderEntityEvent.class)) return;
         PreExtractRenderEntityEvent event = new PreExtractRenderEntityEvent(entity, f);
         if (event.post()) {
             EntityRenderState noop = new EntityRenderState();

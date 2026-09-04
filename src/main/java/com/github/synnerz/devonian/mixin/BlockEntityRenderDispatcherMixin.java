@@ -1,6 +1,7 @@
 package com.github.synnerz.devonian.mixin;
 
 import com.github.synnerz.devonian.api.events.PostRenderTileEntityEvent;
+import com.github.synnerz.devonian.api.events.EventBus;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
@@ -23,6 +24,7 @@ public class BlockEntityRenderDispatcherMixin {
         )
     )
     private <S extends BlockEntityRenderState> void devonian$postRenderTileEntity(S state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState camera, CallbackInfo ci) {
+        if (!EventBus.INSTANCE.hasListeners(PostRenderTileEntityEvent.class)) return;
         new PostRenderTileEntityEvent(state, camera, poseStack, submitNodeCollector).post();
     }
 }

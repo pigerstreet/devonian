@@ -1,6 +1,7 @@
 package com.github.synnerz.devonian.mixin;
 
 import com.github.synnerz.devonian.api.events.PostExtractRenderEntityEvent;
+import com.github.synnerz.devonian.api.events.EventBus;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
@@ -17,6 +18,7 @@ public class EntityRendererMixin {
         at = @At("TAIL")
     )
     private void devonian$postExtractRenderEntity(Entity entity, float f, CallbackInfoReturnable<EntityRenderState> cir, @Local EntityRenderState state) {
+        if (!EventBus.INSTANCE.hasListeners(PostExtractRenderEntityEvent.class)) return;
         new PostExtractRenderEntityEvent(entity, state, f).post();
     }
 }

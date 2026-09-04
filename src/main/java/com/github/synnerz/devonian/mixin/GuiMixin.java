@@ -7,6 +7,7 @@ import com.github.synnerz.devonian.api.events.SelectedItemRenderEvent;
 import com.github.synnerz.devonian.features.misc.*;
 import com.github.synnerz.devonian.mixin.accessor.GuiGraphicsExtractorAccessor;
 import com.github.synnerz.devonian.utils.render.states.TexturedQuadRenderState;
+import com.github.synnerz.devonian.api.events.EventBus;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -207,7 +208,8 @@ public class GuiMixin {
         cancellable = true
     )
     private void devonian$onRenderHotbarSlot(GuiGraphicsExtractor graphics, int x, int y, DeltaTracker deltaTracker, Player player, ItemStack itemStack, int seed, CallbackInfo ci) {
-        if (new RenderHotbarSlotEvent(itemStack, x, y, graphics).post()) ci.cancel();
+        if (EventBus.INSTANCE.hasListeners(RenderHotbarSlotEvent.class)
+                && new RenderHotbarSlotEvent(itemStack, x, y, graphics).post()) ci.cancel();
     }
 
     @Inject(
@@ -219,6 +221,7 @@ public class GuiMixin {
             )
     )
     private void devonian$onPostRenderHotbarSlot(GuiGraphicsExtractor graphics, int x, int y, DeltaTracker deltaTracker, Player player, ItemStack itemStack, int seed, CallbackInfo ci) {
+        if (!EventBus.INSTANCE.hasListeners(PostRenderHotbarSlotEvent.class)) return;
         new PostRenderHotbarSlotEvent(itemStack, x, y, graphics).post();
     }
 
