@@ -85,7 +85,7 @@ object DungeonScanner {
         val pos = BlockPos.MutableBlockPos()
         for (idx in 256 downTo 0) {
             val blockState = world.getBlockState(pos.set(x, idx, z))
-            val block = blockState?.block ?: continue
+            val block = blockState.block
 
             if (blockState.isAir || block == Blocks.GOLD_BLOCK) continue
 
@@ -130,8 +130,8 @@ object DungeonScanner {
         val pos = BlockPos.MutableBlockPos()
 
         for (idx in 140 downTo 12) {
-            val blockState = world.getBlockState(pos.set(x, idx, z)) ?: continue
-            val block = blockState.block ?: continue
+            val blockState = world.getBlockState(pos.set(x, idx, z))
+            val block = blockState.block
             val blockId = getLegacyId(blockState, debug) ?: continue
             if (block == Blocks.IRON_BARS || block == Blocks.CHEST) {
                 str.append('0')
