@@ -104,16 +104,12 @@ object StringUtils {
         if (style.isObfuscated) append("§k")
     }
 
-    private fun parseFormat(_text: Component): String {
-        var str = ""
-
+    private fun StringBuilder.appendFormat(_text: Component) {
         _text.contents.visit({ style, text ->
-            val styleFormat = parseStyle(style)
-            str += "${styleFormat}$text"
+            append(parseStyle(style))
+            append(text)
             Optional.empty<Any>()
         }, _text.style)
-
-        return str
     }
 
     fun fromLegacy(string: String): Component {
@@ -170,12 +166,10 @@ object StringUtils {
         return component
     }
 
-    fun Component.colorCodes(): String {
-        var str = parseFormat(this)
-
-        str += this.siblings.joinToString("", transform = ::parseFormat)
-
-        return str
+    // note this only reaches the direct siblings; anything nested deeper is dropped
+    fun Component.colorCodes(): String = buildString {
+        appendFormat(this@colorCodes)
+        for (sibling in siblings) appendFormat(sibling)
     }
 
     fun addCommas(number: Number): String {
