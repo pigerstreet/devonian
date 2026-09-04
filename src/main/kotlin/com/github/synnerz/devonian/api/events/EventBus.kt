@@ -38,6 +38,13 @@ object EventBus {
     // `ClassReference` on every call, and `post` runs for every packet, tick and frame
     val events = ConcurrentHashMap<Class<*>, MutableList<EventListener<Event>>>()
     private val prioComparator = Comparator.comparingInt<EventListener<Event>> { it.prio }
+    // `hasAnnotation` goes through kotlin-reflect, which is slow enough to show up when the
+    // ~1.5k listeners are (re)registered on startup and on every area change. The java
+    // annotation API answers the same question, and the answer never changes per class.
+    // These MUST stay above the `init` block below: it registers listeners while the object is
+    // still initialising, and Kotlin runs property initialisers in declaration order.
+    private val threadedCache = ConcurrentHashMap<Class<*>, Boolean>()
+    private val orderedCache = ConcurrentHashMap<Class<*>, Boolean>()
     private val entityTypes = mutableMapOf<Int, EntityType<*>>()
     private val entityPos = mutableMapOf<Int, Vec3>()
     var _internalSkipPing = Collections.newSetFromMap<Int>(ConcurrentHashMap())!!
@@ -317,12 +324,6 @@ object EventBus {
             cb(it)
         }
     }
-
-    // `hasAnnotation` goes through kotlin-reflect, which is slow enough to show up when the
-    // ~1.5k listeners are (re)registered on startup and on every area change. The java
-    // annotation API answers the same question, and the answer never changes per class.
-    private val threadedCache = ConcurrentHashMap<Class<*>, Boolean>()
-    private val orderedCache = ConcurrentHashMap<Class<*>, Boolean>()
 
     private fun isThreaded(T: Class<*>): Boolean =
         threadedCache.getOrPut(T) { T.isAnnotationPresent(Threaded::class.java) }
