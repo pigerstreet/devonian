@@ -84,6 +84,8 @@ object ChestProfit : TextHudFeature(
     }
     var inChest = false
     var currentChest: String? = null
+    private val coinsRegex = "(,+| Coins)".toRegex()
+    private val digitsRegex = "\\d+".toRegex()
     var openedChest = false
 
     data class ItemData(
@@ -149,7 +151,8 @@ object ChestProfit : TextHudFeature(
 
             val slot = event.slot
             if (slot == 31) {
-                val currentData = currentChestData[currentChest!!] ?: return@on
+                val chest = currentChest ?: return@on
+                val currentData = currentChestData[chest] ?: return@on
                 val chestItem = event.itemStack
                 if (chestItem.item != Items.CHEST) return@on
                 val chestLore = ItemUtils.lore(chestItem) ?: return@on
@@ -157,12 +160,12 @@ object ChestProfit : TextHudFeature(
                 val costIdx = chestLore.indexOf("Cost")
                 if (costIdx == -1) return@on
 
-                chestLore[costIdx + 1].replace("(,+| Coins)".toRegex(), "").also {
+                chestLore.getOrNull(costIdx + 1)?.replace(coinsRegex, "")?.also {
                     chestPrice +=
-                        if (it.isEmpty() || !"\\d+".toRegex().matches(it)) 0
+                        if (it.isEmpty() || !digitsRegex.matches(it)) 0
                         else it.toInt()
                 }
-                chestLore[costIdx + 2].also {
+                chestLore.getOrNull(costIdx + 2)?.also {
                     if (it != "Dungeon Chest Key") return@also
                     chestPrice += SkyblockPrices.buyPrice("DUNGEON_CHEST_KEY").roundToInt()
                 }
@@ -197,7 +200,8 @@ object ChestProfit : TextHudFeature(
             }
 
             if (sbId == null) return@on
-            val currentData = currentChestData[currentChest!!] ?: return@on
+            val chest = currentChest ?: return@on
+            val currentData = currentChestData[chest] ?: return@on
 
             Scheduler.scheduleTask {
                 currentData.itemData.add(ItemData(
