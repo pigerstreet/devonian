@@ -95,13 +95,13 @@ object StringUtils {
 
         style.color?.let(colorToFormat::get)?.run(::append)
 
-        when {
-            style.isBold -> append("§l")
-            style.isItalic -> append("§o")
-            style.isUnderlined -> append("§n")
-            style.isStrikethrough -> append("§m")
-            style.isObfuscated -> append("§k")
-        }
+        // these are not mutually exclusive - a `when` only emitted the first one that matched,
+        // so bold+italic text came back as just "§l"
+        if (style.isBold) append("§l")
+        if (style.isItalic) append("§o")
+        if (style.isUnderlined) append("§n")
+        if (style.isStrikethrough) append("§m")
+        if (style.isObfuscated) append("§k")
     }
 
     private fun parseFormat(_text: Component): String {
