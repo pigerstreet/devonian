@@ -33,12 +33,19 @@ object Ping {
     }
 
     fun getMedianPing(): Double {
+        // the tick handler drains both sets while this runs on the render thread (PingDisplay,
+        // DragonStackAimer) and on the netty thread (addSample), so a set that was non-empty at the
+        // size check could be empty by the time first() reads it - and first() throws
+        val max = medianMax.firstOrNull()
+        val min = medianMin.firstOrNull()
+        if (max == null) return min?.v ?: 0.0
+        if (min == null) return max.v
+
         val maxL = medianMax.size
         val minL = medianMin.size
-        if (maxL > minL) return medianMax.first.v
-        if (minL > maxL) return medianMin.first.v
-        if (maxL == 0) return 0.0
-        return 0.5 * (medianMax.first.v + medianMin.first.v)
+        if (maxL > minL) return max.v
+        if (minL > maxL) return min.v
+        return 0.5 * (max.v + min.v)
     }
 
     private fun rebalanceHeaps() {
