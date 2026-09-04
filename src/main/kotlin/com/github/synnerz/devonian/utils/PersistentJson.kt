@@ -8,8 +8,10 @@ import com.github.synnerz.devonian.config.PersistentObject
 import com.google.gson.GsonBuilder
 import java.io.InputStream
 import java.io.OutputStream
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -116,7 +118,21 @@ abstract class PersistentJson(fileName: String, private var saveBackups: Boolean
        if (!latch.await(1000L, TimeUnit.MILLISECONDS)) return
 
         Files.createDirectories(p.parent)
-        Files.newOutputStream(p).use { onSave(it) }
+
+        // newOutputStream truncates first, so a crash part way through onSave used to leave a
+        // half written config where the real one was. Build it beside the target and swap it in.
+        val tmp = p.resolveSibling("${p.fileName}.tmp")
+        try {
+            Files.newOutputStream(tmp).use { onSave(it) }
+            try {
+                Files.move(tmp, p, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(tmp, p, StandardCopyOption.REPLACE_EXISTING)
+            }
+        } catch (e: Exception) {
+            tmp.deleteIfExists()
+            throw e
+        }
     }
 
     /**
