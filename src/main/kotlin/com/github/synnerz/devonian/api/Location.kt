@@ -20,7 +20,9 @@ object Location {
     fun changeArea(loc: String) {
         val old = area
         val l = loc.lowercase()
-        if (old === l) return
+        // identity, not equality: the stored area came from an earlier regex match, so it is
+        // never the same object and this guard never fired - changeSubarea below has it right
+        if (old == l) return
 
         AreaEvent(l).post()
         area = l
