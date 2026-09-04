@@ -19,8 +19,10 @@ abstract class BufferedImageRenderer<T>(val name: String) {
     protected val uploader = BufferedImageUploader(name)
     protected val dirtyImage = atomic<BufferedImage?>(null)
     protected val bimgProvider: BufferedImageFactory = BufferedImageFactory()
-    protected var running = false
-    protected var waiting: Triple<Int, Int, T>? = null
+    // written by the worker, read by whoever calls update - without volatile the caller could
+    // miss `running = false` and stop scheduling redraws entirely
+    @Volatile protected var running = false
+    @Volatile protected var waiting: Triple<Int, Int, T>? = null
     protected var lastFuture: Future<*>? = null
     protected val mcid = Identifier.fromNamespaceAndPath("devonian", "buffered_image/${name.lowercase()}")
     protected var valid = true
@@ -46,7 +48,9 @@ abstract class BufferedImageRenderer<T>(val name: String) {
         lastFuture = pool.submit {
             try {
                 val img = createImage(w, h)
-                dirtyImage.value = drawImage(img, param)
+                // whatever was still queued is never going to be uploaded, and its pixels live in
+                // off-heap memory that only close() frees
+                closeNative(dirtyImage.getAndSet(drawImage(img, param)))
             } catch (e: Exception) {
                 println("error trying to render BufferedImage in $name")
                 e.printStackTrace()
@@ -59,11 +63,16 @@ abstract class BufferedImageRenderer<T>(val name: String) {
     }
 
     protected fun uploadImage() {
-        val bimg = dirtyImage.getAndSet(null)
-        if (bimg != null && !old) {
-            uploader.upload(bimg)
-            valid = true
-        }
+        val bimg = dirtyImage.getAndSet(null) ?: return
+        if (old) return closeNative(bimg)
+
+        uploader.upload(bimg)
+        valid = true
+    }
+
+    /** upload() hands the native buffer back to the allocator; anything we drop must do the same */
+    private fun closeNative(img: BufferedImage?) {
+        (img as? NativeBufferedImage)?.backing?.close()
     }
 
     open fun invalidate() {
