@@ -5,6 +5,7 @@ import com.github.synnerz.devonian.api.events.ClientThreadServerTickEvent
 import com.github.synnerz.devonian.api.events.WorldChangeEvent
 import com.github.synnerz.devonian.config.Categories
 import com.github.synnerz.devonian.features.Feature
+import com.github.synnerz.devonian.utils.FixedIdentityMap
 import com.github.synnerz.devonian.utils.StringUtils.clearCodes
 import net.minecraft.ChatFormatting
 import net.minecraft.client.multiplayer.chat.GuiMessage
@@ -31,9 +32,20 @@ object CompactChat : Feature(
         .withObfuscated(false)
         .withStrikethrough(false)
         .withUnderlined(false)
-    private val chatHistory = hashMapOf<String, MessageHistory>()
+    private const val MAX_HISTORY = 512
+
+    // both of these only ever emptied on a world change, so a long stay on one server kept an
+    // entry for every distinct message that had ever been sent - and each entry pinned a
+    // GuiMessage (lastCheck here, the key there) with its whole component tree, long after the
+    // line had been trimmed out of chat. bound them instead: an entry older than the 60s window
+    // below is already treated as unseen, so dropping the oldest costs nothing.
+    private val chatHistory = object : LinkedHashMap<String, MessageHistory>() {
+        override fun removeEldestEntry(eldest: Map.Entry<String, MessageHistory>?): Boolean {
+            return size > MAX_HISTORY
+        }
+    }
     private val recentMessages = hashMapOf<String, Int>()
-    private val textContentCache = IdentityHashMap<GuiMessage, String?>()
+    private val textContentCache = FixedIdentityMap<GuiMessage, String?>(MAX_HISTORY)
     private val nonLineBreakMessage = "\\w".toRegex()
 
     data class MessageHistory(var count: Int = 0, var lastTime: Long = 0L, var lastCheck: GuiMessage? = null)
