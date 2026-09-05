@@ -67,6 +67,11 @@ object TerminalDropKey : Feature(
     }
 
     override fun onWorldChange(event: WorldChangeEvent) {
+        // this cleared the flag without putting the key back, so a world change while a
+        // terminal was open left keyDrop bound to the terminal keybind - and because
+        // inTerminal was now false, neither close handler would ever restore it. the
+        // rebinding is written to options.txt, so it survived the session too
+        if (inTerminal) lastDropKey?.let { minecraft.options.keyDrop.setKey(it) }
         inTerminal = false
     }
 }
