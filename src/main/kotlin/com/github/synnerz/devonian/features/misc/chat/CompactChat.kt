@@ -32,13 +32,16 @@ object CompactChat : Feature(
         .withObfuscated(false)
         .withStrikethrough(false)
         .withUnderlined(false)
-    private const val MAX_HISTORY = 512
+    // sized to sit just above RemoveChatLimit's default 1000 line chat buffer, so that what
+    // expires an entry is the 60 second window below and not the cap: a message that repeats
+    // inside that window still stacks however busy chat is, and the GuiMessages held here are
+    // ones the buffer is keeping alive anyway.
+    private const val MAX_HISTORY = 1024
 
     // both of these only ever emptied on a world change, so a long stay on one server kept an
     // entry for every distinct message that had ever been sent - and each entry pinned a
     // GuiMessage (lastCheck here, the key there) with its whole component tree, long after the
-    // line had been trimmed out of chat. bound them instead: an entry older than the 60s window
-    // below is already treated as unseen, so dropping the oldest costs nothing.
+    // line had been trimmed out of chat. bound them instead.
     private val chatHistory = object : LinkedHashMap<String, MessageHistory>() {
         override fun removeEldestEntry(eldest: Map.Entry<String, MessageHistory>?): Boolean {
             return size > MAX_HISTORY
