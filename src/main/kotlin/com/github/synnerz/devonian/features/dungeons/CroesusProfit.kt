@@ -129,10 +129,12 @@ object CroesusProfit : TextHudFeature(
                 }
 
                 if (line == "Cost") {
-                    val chestPriceLore = lore[jdx + 1]
-                    val possibleKey = lore[jdx + 2]
-                    var price = costRegex
-                        .matchEntire(chestPriceLore)
+                    // read past the end if "Cost" lands on or next to the last line, and this
+                    // handler runs on the netty thread where that disconnects you
+                    val chestPriceLore = lore.getOrNull(jdx + 1)
+                    val possibleKey = lore.getOrNull(jdx + 2)
+                    var price = chestPriceLore
+                        ?.let(costRegex::matchEntire)
                         ?.groupValues
                         ?.drop(1)
                         ?.getOrNull(0)

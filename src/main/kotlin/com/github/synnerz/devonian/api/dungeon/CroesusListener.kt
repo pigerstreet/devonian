@@ -221,10 +221,12 @@ object CroesusListener {
             // TODO: find reroll here? maybe inside chest?
 
             if (line == "Cost") {
-                val chestPriceLore = lore[idx + 1]
-                val possibleKey = lore[idx + 2]
-                var price = costRegex
-                    .matchEntire(chestPriceLore)
+                // read past the end if "Cost" lands on or next to the last line, and this
+                // handler runs on the netty thread where that disconnects you
+                val chestPriceLore = lore.getOrNull(idx + 1)
+                val possibleKey = lore.getOrNull(idx + 2)
+                var price = chestPriceLore
+                    ?.let(costRegex::matchEntire)
                     ?.groupValues
                     ?.drop(1)
                     ?.getOrNull(0)
