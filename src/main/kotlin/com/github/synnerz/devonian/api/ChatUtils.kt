@@ -130,7 +130,12 @@ object ChatUtils {
 
     @JvmOverloads
     fun command(command: String, clientSide: Boolean = false) {
-        if (!clientSide) return Minecraft.getInstance().connection!!.sendCommand(command)
+        if (!clientSide) {
+            // scheduled tasks and delayed handlers reach here after the connection has gone,
+            // and !! made that a crash. say() right below already reads it the safe way
+            val connection = Minecraft.getInstance().connection ?: return
+            return connection.sendCommand(command)
+        }
         ClientCommandInternals.executeCommand(command)
     }
 

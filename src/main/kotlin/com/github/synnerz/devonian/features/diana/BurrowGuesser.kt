@@ -345,18 +345,21 @@ object BurrowGuesser : Feature(
                 is ServerboundUseItemOnPacket -> packet.hand
                 else -> null
             } ?: return@on
-            val itemStack = minecraft.player?.getItemInHand(hand) ?: return@on
+            // read once: this runs on the netty thread and the client thread nulls the player
+            // out on disconnect, so re-reading it for the !! below was a window for an NPE
+            val localPlayer = minecraft.player ?: return@on
+            val itemStack = localPlayer.getItemInHand(hand)
 
             val sbId = ItemUtils.skyblockId(itemStack) ?: return@on
             if (!isSpade(sbId)) return@on
 
-            val player = minecraft.player as? LocalPlayerAccessor? ?: return@on
+            val player = localPlayer as? LocalPlayerAccessor ?: return@on
 
             spadeUsePositions.add(
                 PositionTime(
                     EventBus.serverTicks() + (Ping.getMedianPing() / 50.0 + 10.0).toInt(),
                     player.lastXClient,
-                    player.lastYClient + minecraft.player!!.eyeHeight,
+                    player.lastYClient + localPlayer.eyeHeight,
                     player.lastZClient
                 )
             )

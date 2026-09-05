@@ -113,10 +113,14 @@ object GardenEvents {
             PestDrop(cropType, amount, true).post()
         }.setEnabled(Location.stateInArea("garden"))
 
+        // the two Server* handlers below run on the netty thread and the Client one on the
+        // client thread, and all three read visitorData and then null it - so checking the
+        // field and dereferencing it separately left a window where the other thread had
+        // already cleared it. read it into a local once instead.
         EventBus.on<ServerContainerOpenEvent> { event ->
-            if (visitorData != null && lastGui != visitorData!!.name.string) {
-                val _data = visitorData
-                Scheduler.scheduleTask { VisitorClose(_data!!).post() }
+            val _data = visitorData
+            if (_data != null && lastGui != _data.name.string) {
+                Scheduler.scheduleTask { VisitorClose(_data).post() }
                 visitorData = null
             }
             lastGui = event.titleStr
@@ -124,16 +128,14 @@ object GardenEvents {
 
         EventBus.on<ServerContainerCloseEvent> {
             lastGui = null
-            if (visitorData == null) return@on
-            val _data = visitorData
-            Scheduler.scheduleTask { VisitorClose(_data!!).post() }
+            val _data = visitorData ?: return@on
+            Scheduler.scheduleTask { VisitorClose(_data).post() }
             visitorData = null
         }.setEnabled(Location.stateInArea("garden"))
         EventBus.on<ClientContainerCloseEvent> {
             lastGui = null
-            if (visitorData == null) return@on
-            val _data = visitorData
-            Scheduler.scheduleTask { VisitorClose(_data!!).post() }
+            val _data = visitorData ?: return@on
+            Scheduler.scheduleTask { VisitorClose(_data).post() }
             visitorData = null
         }.setEnabled(Location.stateInArea("garden"))
 
