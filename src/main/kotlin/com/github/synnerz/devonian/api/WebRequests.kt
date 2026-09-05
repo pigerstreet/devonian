@@ -19,6 +19,12 @@ object WebRequests {
         .connectTimeout(Duration.ofSeconds(20))
         .followRedirects(HttpClient.Redirect.NORMAL)
         .build()
+
+    // connectTimeout only bounds getting the connection open - a server that accepts and then
+    // stops sending leaves sendAsync pending forever, holding its coroutine and connection.
+    // DungeonsApi polls every 5 seconds, so those pile up rather than replace each other.
+    // Generous because the bazaar and lowestbin responses are megabytes on a slow line.
+    private val requestTimeout = Duration.ofSeconds(60)
     val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineName("Devonian"))
 
     suspend fun get(
@@ -27,6 +33,7 @@ object WebRequests {
         val request = HttpRequest.newBuilder()
             .uri(URI.create(url))
             .headers("User-Agent", "Mozilla/5.0 (Devonian)")
+            .timeout(requestTimeout)
             .GET()
             .build()
 
@@ -48,6 +55,7 @@ object WebRequests {
             .uri(URI.create(url))
             .headers("User-Agent", "Mozilla/5.0 (Devonian)")
             .headers("Content-Type", contentType)
+            .timeout(requestTimeout)
             .POST(BodyPublishers.ofString(body))
             .build()
 
