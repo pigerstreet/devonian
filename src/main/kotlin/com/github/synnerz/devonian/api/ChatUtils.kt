@@ -5,6 +5,7 @@ import com.github.synnerz.devonian.api.events.TickEvent
 import com.github.synnerz.devonian.features.misc.chat.CompactChatComponent
 import com.github.synnerz.devonian.Devonian
 import com.github.synnerz.devonian.mixin.accessor.ChatComponentAccessor
+import com.github.synnerz.devonian.utils.FixedIdentityMap
 import com.github.synnerz.devonian.utils.StringUtils.clearCodes
 import net.fabricmc.fabric.impl.command.client.ClientCommandInternals
 import net.minecraft.client.Minecraft
@@ -20,7 +21,17 @@ import kotlin.math.roundToInt
 object ChatUtils {
     const val prefix = "&8&l[&3&lDevonian&8&l]&r"
     val chatLineIds = mutableMapOf<GuiMessage, Int>()
-    val lineCache = IdentityHashMap<GuiMessage.Line, GuiMessage>()
+
+    // an entry goes in for every chat line drawn and only ever came out in
+    // refreshTrimmedMessages, which runs on a resize or a chat setting change - so a session
+    // that never resized held a GuiMessage.Line and its GuiMessage, component tree and all,
+    // for every line ever shown, long after chat had trimmed them away.
+    //
+    // the only reader is getMessageFromLine, for the line under the cursor, and ChatComponent
+    // only keeps RemoveChatLimit's maxMessages lines to hover. that slider maxes out at 10000
+    // and FixedIdentityMap holds one less than the size it is given, so this cannot evict a
+    // line that is still on screen at any setting.
+    val lineCache = FixedIdentityMap<GuiMessage.Line, GuiMessage>(10_240)
     val chatComponentAccessor get() = Minecraft.getInstance().gui.chat as ChatComponentAccessor
     val chatGui get() = Minecraft.getInstance().gui.chat
 
