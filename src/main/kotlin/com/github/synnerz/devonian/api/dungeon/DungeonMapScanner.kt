@@ -93,15 +93,25 @@ object DungeonMapScanner {
 
         if (entranceIdx >= colors.size) return false
 
+        // these walked outward from the entrance with no bound. the probe grid above starts at
+        // 0, so a map whose very first pixel is ROOM_ENTRANCE leaves entranceIdx at 0 and the
+        // first walk reads colors[-1] - and byte 30 is not only the entrance room, it is an
+        // ordinary green in the vanilla map palette, so any map packet carrying one reaches
+        // here. That is on the netty thread, where the throw disconnects you.
         var l = entranceIdx
         var r = entranceIdx
-        while (colors[l - 1] == MapColors.ROOM_ENTRANCE.color) l--
-        while (colors[r + 1] == MapColors.ROOM_ENTRANCE.color) r++
+        while (l - 1 >= 0 && colors[l - 1] == MapColors.ROOM_ENTRANCE.color) l--
+        while (r + 1 < colors.size && colors[r + 1] == MapColors.ROOM_ENTRANCE.color) r++
 
         var t = entranceIdx
         var b = entranceIdx
-        while (colors[t - SCAN] == MapColors.ROOM_ENTRANCE.color) t -= SCAN
-        while (colors[b + SCAN] == MapColors.ROOM_ENTRANCE.color) b += SCAN
+        while (t - SCAN >= 0 && colors[t - SCAN] == MapColors.ROOM_ENTRANCE.color) t -= SCAN
+        while (b + SCAN < colors.size && colors[b + SCAN] == MapColors.ROOM_ENTRANCE.color) b += SCAN
+
+        // a run that reaches an edge is not an entrance room, and the dimensions below would
+        // be nonsense that sticks until reset() since roomSize is only scanned once. fail the
+        // scan the same way the entrance search does - the next map packet tries again.
+        if (l - 1 < 0 || r + 1 >= colors.size || t - SCAN < 0 || b + SCAN >= colors.size) return false
 
         l = l and 127
         r = r and 127
