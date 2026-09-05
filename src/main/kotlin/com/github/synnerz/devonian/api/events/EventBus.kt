@@ -27,6 +27,7 @@ import org.lwjgl.glfw.GLFW
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.jvm.optionals.getOrNull
 import kotlin.reflect.KClass
 
@@ -332,11 +333,19 @@ object EventBus {
     }
 
     inline fun <reified T : Event> once(noinline cb: (T) -> Unit) {
-        var evn: EventListener<T>? = null
-        evn = on {
-            evn!!.unregister()
+        // unregistering a non-@Threaded listener is deferred to the next client tick, so a
+        // listener that removes itself still runs for every remaining frame of that tick - a
+        // "once" on a render event fired once per frame instead. latch it. registering only
+        // after the listener is published also closes the window where a @Threaded event could
+        // fire on the netty thread before `evn` had been assigned.
+        val fired = AtomicBoolean()
+        lateinit var evn: EventListener<T>
+        evn = on<T>({
+            if (!fired.compareAndSet(false, true)) return@on
+            evn.unregister()
             cb(it)
-        }
+        }, false)
+        evn.register()
     }
 
     private fun isThreaded(T: Class<*>): Boolean =
