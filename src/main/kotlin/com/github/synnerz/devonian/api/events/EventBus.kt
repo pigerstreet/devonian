@@ -45,8 +45,11 @@ object EventBus {
     // still initialising, and Kotlin runs property initialisers in declaration order.
     private val threadedCache = ConcurrentHashMap<Class<*>, Boolean>()
     private val orderedCache = ConcurrentHashMap<Class<*>, Boolean>()
-    private val entityTypes = mutableMapOf<Int, EntityType<*>>()
-    private val entityPos = mutableMapOf<Int, Vec3>()
+    // written from the netty thread as add-entity packets land and cleared from the client thread
+    // on a world change, so a plain HashMap can corrupt under them. entries also only ever went
+    // away on that world change, so a long session on one server held every entity it had seen.
+    private val entityTypes = ConcurrentHashMap<Int, EntityType<*>>()
+    private val entityPos = ConcurrentHashMap<Int, Vec3>()
     var _internalSkipPing = Collections.newSetFromMap<Int>(ConcurrentHashMap())!!
 
     init {
@@ -194,6 +197,17 @@ object EventBus {
                     val type = packet.type
                     entityTypes[id] = type
                     entityPos[id] = Vec3(packet.x, packet.y, packet.z)
+                }
+
+                is ClientboundRemoveEntitiesPacket -> {
+                    // indexed rather than iterated: this is fastutil's IntList, and a for-each
+                    // would box every id just to throw it away again
+                    val ids = packet.entityIds
+                    for (i in 0 until ids.size) {
+                        val id = ids.getInt(i)
+                        entityTypes.remove(id)
+                        entityPos.remove(id)
+                    }
                 }
 
                 is ClientboundSetEntityDataPacket -> {
