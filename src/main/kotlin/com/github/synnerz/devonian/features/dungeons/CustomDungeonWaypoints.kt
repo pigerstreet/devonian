@@ -259,7 +259,14 @@ object CustomDungeonWaypoints : Feature(
             if (Dungeons.inBoss.value && currentRoom != null && currentRoom!! < BOSS_ID) return@on
             if (SETTING_REMOVE_ON_DONE.get() && clearedRooms.contains(currentRoom)) return@on
 
-            currentParent?.waypoints?.forEach {
+            val waypoints = currentParent?.waypoints ?: return@on
+            // this list does not change while we draw, but it used to be rebuilt - a filter
+            // over every waypoint in the room - once per etherwarp waypoint, every frame
+            val orderedEthers =
+                if (SETTING_ORDERED_ETHERS.get()) waypoints.filter { f -> f.type == WaypointType.ETHERWARP }
+                else null
+
+            waypoints.forEach {
                 if (SETTING_REMOVE_ON_COLLECT.get() && it.clicked) return@forEach
 
                 val pos = it.pos() ?: return@forEach
@@ -296,9 +303,8 @@ object CustomDungeonWaypoints : Feature(
                         phase = SETTING_TEXT_PHASE_MODE.get()
                     )
                 }
-                else if (it.type == WaypointType.ETHERWARP && SETTING_ORDERED_ETHERS.get()) {
-                    // TODO: make more efficient
-                    val idx = currentParent!!.waypoints.filter { f -> f.type == WaypointType.ETHERWARP }.indexOf(it)
+                else if (it.type == WaypointType.ETHERWARP && orderedEthers != null) {
+                    val idx = orderedEthers.indexOf(it)
                     if (idx != -1) {
                         Render3DImmediate.renderString(
                             "${idx + 1}",
