@@ -124,6 +124,14 @@ abstract class PersistentJson(fileName: String, private var saveBackups: Boolean
         val tmp = p.resolveSibling("${p.fileName}.tmp")
         try {
             Files.newOutputStream(tmp).use { onSave(it) }
+            // an onSave that returns without writing anything - PersistentJsonClass does exactly
+            // that when its data is null - must not be allowed to swap an empty file in over a
+            // good config. no subclass writes a legitimately empty file
+            if (Files.size(tmp) == 0L) {
+                println("PersistentJson: $fileName had nothing to save, keeping the file on disk.")
+                tmp.deleteIfExists()
+                return
+            }
             try {
                 Files.move(tmp, p, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
             } catch (_: AtomicMoveNotSupportedException) {
