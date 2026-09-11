@@ -412,6 +412,9 @@ object Devonian : ClientModInitializer {
             BatScoreKilled,
             SpiritLeapMessage,
             CommandWaypoints,
+            ProtectValuableItems,
+            BookCombineHelper,
+            SafariUniqueTracker,
 
             // Debug
             CopyItem,
