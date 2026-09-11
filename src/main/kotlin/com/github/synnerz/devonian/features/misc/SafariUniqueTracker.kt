@@ -67,8 +67,8 @@ object SafariUniqueTracker : TextHudFeature(
             )
         ),
         ICY(
-            "forest",
-            "&2Icy",
+            "icy",
+            "&9Icy",
             setOf(
                 "Strongarm",
                 "Tepid",
@@ -106,6 +106,7 @@ object SafariUniqueTracker : TextHudFeature(
                 val mobType = it.getOrNull(0) ?: return@on
                 val playerName = it.getOrNull(1) ?: return@on
                 val biome = BiomeType.fromMobType(mobType) ?: return@on
+                if (teamCount.any { it.value.captures.contains(mobType) }) return@on
 
                 teamCount.getOrPut(playerName) { PlayerData(biome) }.add(mobType)
             }
@@ -113,6 +114,7 @@ object SafariUniqueTracker : TextHudFeature(
             val biome = BiomeType.fromMobType(mobType) ?: return@on
             if (captures.biome == BiomeType.NONE)
                 captures.biome = biome
+            if (teamCount.any { it.value.captures.contains(mobType) }) return@on
 
             captures.add(mobType)
         }
@@ -120,16 +122,15 @@ object SafariUniqueTracker : TextHudFeature(
         on<ClientThreadServerTickEvent> {
             if (captures.biome == BiomeType.NONE) return@on
             val biome = captures.biome
-            val missing = captures.captures - biome.mobTypes
+            val missing = biome.mobTypes - captures.captures
 
             setLines(buildList {
-                add("&e[${biome.biomeFormat}&e]")
+                add("&e[${biome.biomeFormat}&e] &c${captures.captures.size}&f/&6${biome.mobTypes.size}")
                 missing.forEach { add("&7- &c$it") }
-                add("&c${missing.size}&f/&6${biome.mobTypes.size}")
                 add("")
                 teamCount.forEach { (playerName, data) ->
-                    val missing = data.captures - data.biome.mobTypes
-                    add("&a$playerName &e[${data.biome.biomeFormat}&e]&f: &c${missing.size}&f/&6${data.biome.mobTypes.size}")
+                    val missing = data.biome.mobTypes - data.captures
+                    add("&a$playerName &e[${data.biome.biomeFormat}&e]&f: &c${data.captures.size}&f/&6${data.biome.mobTypes.size}")
                     if (missing.size > 3) return@forEach
 
                     missing.forEach { ms -> add("&7- &c$ms") }
@@ -143,10 +144,9 @@ object SafariUniqueTracker : TextHudFeature(
     }
 
     override fun getEditText(): List<String> = listOf(
-        "&e[&6Cavern&e]",
+        "&e[&6Cavern&e] &c2&f/&69",
         "&7- &cCavernfish",
         "&7- &cFlitter",
-        "&c2&f/&69",
         "",
         "&a${minecraft.player?.name?.string ?: ""} &e[&2Forest&e]&f: &c2&f/&69",
     )
