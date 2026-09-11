@@ -1,5 +1,9 @@
 name: build
-on: [push]
+# every push to any branch builds; workflow_dispatch adds a "Run workflow" button
+# on the Actions tab for rebuilding without a new commit
+on:
+  push:
+  workflow_dispatch:
 
 jobs:
   build:
