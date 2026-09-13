@@ -30,6 +30,7 @@ object SafariUniqueTracker : TextHudFeature(
     private val captureRegex = "^CAPTURE! You (?:caught|found) (?:an?|the) ([\\w ]+),? and (?:as a reward|gained)? a?n? ?(?:it gave you a )?(?:\\d+x )?([\\w ]+) Shard!$".toRegex()
     private val teamCaptureRegex = "^LOOT SHARE! You received a?n? ?(?:\\d+x )?([\\w ]+) Shard from (\\w{1,16}) (?:catching|finding) (?:an?|the) ([\\w ]+)!$".toRegex()
     private val teamCount = mutableMapOf<String, PlayerData>()
+    private val delegatedMobTypes = mutableMapOf<BiomeType, MutableSet<String>>()
     private val biomesDone = mutableSetOf<BiomeType>()
     private var captures = PlayerData(BiomeType.NONE)
     private var messageSent = false
@@ -110,7 +111,8 @@ object SafariUniqueTracker : TextHudFeature(
         val captures: MutableSet<String> = mutableSetOf(),
         var isMax: Boolean = false,
     ) {
-        fun add(mobType: String) {
+        fun add(mobType: String, overwrite: Boolean = false) {
+            if (!overwrite && teamCount.any { it.value.captures.contains(mobType) }) return
             captures.add(mobType)
         }
     }
@@ -121,15 +123,31 @@ object SafariUniqueTracker : TextHudFeature(
                 val mobType = it.getOrNull(0) ?: return@on
                 val playerName = it.getOrNull(1) ?: return@on
                 val biome = BiomeType.fromMobType(mobType) ?: return@on
-                if (teamCount.any { it.value.captures.contains(mobType) }) return@on
 
-                teamCount.getOrPut(playerName) { PlayerData(biome) }.add(mobType)
+                teamCount.getOrPut(playerName) { PlayerData(biome) }.apply {
+                    add(mobType)
+
+                    val delegates = delegatedMobTypes[biome] ?: return@apply
+                    delegates.forEach {
+                        add(it)
+                        delegates.remove(it)
+                    }
+                }
             }
             val ( mobType, shardType ) = event.matches(captureRegex) ?: return@on
             val biome = BiomeType.fromMobType(mobType) ?: return@on
+            if (captures.biome != BiomeType.NONE && biome != captures.biome) {
+                val memberBiome = teamCount.entries.find { it.value.biome == biome }?.value
+                if (memberBiome == null) {
+                    delegatedMobTypes.getOrPut(biome) { mutableSetOf() }.add(mobType)
+                    return@on
+                }
+
+                memberBiome.add(mobType)
+                return@on
+            }
             if (captures.biome == BiomeType.NONE)
                 captures.biome = biome
-            if (teamCount.any { it.value.captures.contains(mobType) }) return@on
 
             captures.add(mobType)
         }
@@ -185,6 +203,7 @@ object SafariUniqueTracker : TextHudFeature(
         captures = PlayerData(BiomeType.NONE)
         messageSent = false
         biomesDone.clear()
+        delegatedMobTypes.clear()
         clearLines()
     }
 }
