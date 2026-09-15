@@ -39,8 +39,10 @@ object RunsLogger : Feature(
     private val secretsFoundRegex = "^ *Secrets Found: (\\d+)$".toRegex()
     private val milestoneRegex = "^ Your Milestone: .(.)\$".toRegex()
     private val milestonSymbols = listOf("⓿", "❶", "❷", "❸", "❹", "❺", "❻", "❼", "❽", "❾")
-    private val localTime = LocalDateTime.now()
-    private val currentDate = "${localTime.monthValue}/${localTime.dayOfMonth}/${localTime.year}"
+    // read when a run is logged, not once when the class loads - a val here filed everything
+    // after midnight under the day the game was launched. one now() per read, so the three
+    // parts cannot straddle midnight either
+    private val currentDate get() = LocalDateTime.now().let { "${it.monthValue}/${it.dayOfMonth}/${it.year}" }
     private var currentStat: RunStats? = null
     private var milestone = 0
     private var hasAdded = false
@@ -233,7 +235,7 @@ object RunsLogger : Feature(
             .greedyString("date")
             .suggest("date") {
                 buildList {
-                    val current = "*${localTime.monthValue}/${localTime.dayOfMonth}/${localTime.year}"
+                    val current = "*$currentDate"
 
                     add(current)
 

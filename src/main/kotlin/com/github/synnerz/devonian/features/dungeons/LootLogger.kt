@@ -55,8 +55,10 @@ object LootLogger : Feature(
     private val croesusChestRegex = "^(Master )?Catacombs - Floor ([IV]+)$".toRegex()
     private val chestOpenRegex = "^ *(BEDROCK|OBSIDIAN|EMERALD|DIAMOND|GOLD|WOOD) CHEST REWARDS$".toRegex()
     private val shardItemRegex = "^([\\w ]+) Shard x\\d+$".toRegex()
-    private val localTime = LocalDateTime.now()
-    private val currentDate = "${localTime.monthValue}/${localTime.dayOfMonth}/${localTime.year}"
+    // read when a chest is logged, not once when the class loads - a val here filed everything
+    // after midnight under the day the game was launched. one now() per read, so the three
+    // parts cannot straddle midnight either
+    private val currentDate get() = LocalDateTime.now().let { "${it.monthValue}/${it.dayOfMonth}/${it.year}" }
     private var currentFloor: String? = null
     private var currentChest: ChestData? = null
     private var scan = false
@@ -197,7 +199,7 @@ object LootLogger : Feature(
             .greedyString("date")
             .suggest("date") {
                 buildList {
-                    val current = "*${localTime.monthValue}/${localTime.dayOfMonth}/${localTime.year}"
+                    val current = "*$currentDate"
 
                     add(current)
 
