@@ -1,6 +1,7 @@
 package com.github.synnerz.devonian.features.misc
 
 import com.github.synnerz.devonian.api.ItemUtils
+import com.github.synnerz.devonian.api.Scheduler
 import com.github.synnerz.devonian.api.ScreenUtils
 import com.github.synnerz.devonian.api.events.ClientContainerCloseEvent
 import com.github.synnerz.devonian.api.events.GuiClickEvent
@@ -51,7 +52,11 @@ object BookCombineHelper : Feature(
         }
 
         on<ServerContainerCloseEvent> {
-            reset()
+            // this runs on the netty thread, and reset() clears the two lists that TickEvent is
+            // rebuilding and RenderSlotEvent is reading on the client thread - hand it over. the
+            // flag still drops now, and an anvil reopened before the task runs is left alone
+            inAnvil = false
+            Scheduler.scheduleTask { if (!inAnvil) reset() }
         }
         on<ClientContainerCloseEvent> {
             reset()

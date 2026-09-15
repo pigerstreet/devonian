@@ -16,6 +16,7 @@ import com.github.synnerz.devonian.utils.StringUtils.colorCodes
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import net.minecraft.world.item.Items
+import java.util.concurrent.CopyOnWriteArrayList
 
 // TODO: add it to fishing category whenever unlazy
 object LotusPityDisplay : TextHudFeature(
@@ -30,7 +31,10 @@ object LotusPityDisplay : TextHudFeature(
     private val pityProgressRegex = "^Progress to (GOLD|DIAMOND): (\\d+)/(\\d+)$".toRegex()
     private val trophyCaughtRegex = "^♔ TROPHY FROG! You caught an? ([\\w ]+) (BRONZE|SILVER|GOLD|DIAMOND)!$".toRegex()
     private val trophyCaughtMultiRegex = "^♔ TROPHY FROG! You caught ([\\w ]+) (BRONZE|SILVER|GOLD|DIAMOND) x(\\d+)!$".toRegex()
-    private val pityCount = mutableListOf<PityFrog>()
+    // rewritten from the netty thread as the pity GUI loads, while the client thread searches it
+    // every tick and the autosave thread walks it in onPreSave - so reads must never see a
+    // half-applied removeIf/add. writes are ~18 per GUI open, so copying on write is cheap
+    private val pityCount = CopyOnWriteArrayList<PityFrog>()
     private val trophyFrogs = mutableMapOf<String, Pair<Int, String>>()
     private var inPityGui = false
     private var lastCatch: String? = null
