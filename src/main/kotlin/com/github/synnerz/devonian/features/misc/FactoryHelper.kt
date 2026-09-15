@@ -149,13 +149,15 @@ object FactoryHelper : Feature(
 
             val nextCPSMatch = nextCPSRegex.matchEntire(line)
             if (nextCPSMatch != null) {
-                nextCps = nextCPSMatch.groupValues[1].replace(",", "").toInt()
+                // both regexes accept a decimal point and a trailing x, so "+0.05x" matches them,
+                // and toInt() throws on it - on the netty thread, where that disconnects you
+                nextCps = nextCPSMatch.groupValues[1].replace(",", "").toDoubleOrNull()?.toInt() ?: 0
                 continue
             }
 
             // Match current cps at the end because it checks "globally" and it can match next cps
             val match = currentCPSRegex.find(line) ?: continue
-            currentCps = match.groupValues[1].replace(",", "").toInt()
+            currentCps = match.groupValues[1].replace(",", "").toDoubleOrNull()?.toInt() ?: 0
         }
         if (cost == 0.0) {
             stats.remove(slot)
