@@ -148,10 +148,10 @@ object SafariUniqueTracker : TextHudFeature(
                     add(mobType)
 
                     val delegates = delegatedMobTypes[biome] ?: return@apply
-                    delegates.forEach {
-                        add(it)
-                        delegates.remove(it)
-                    }
+                    // removing from a LinkedHashSet while iterating it throws on the second element,
+                    // and this runs inside chat packet handling, where a throw disconnects you
+                    delegates.forEach { add(it) }
+                    delegates.clear()
                 }
             }
 
@@ -164,10 +164,8 @@ object SafariUniqueTracker : TextHudFeature(
                     add(mobType)
 
                     val delegates = delegatedMobTypes[biome] ?: return@apply
-                    delegates.forEach {
-                        add(it)
-                        delegates.remove(it)
-                    }
+                    delegates.forEach { add(it) }
+                    delegates.clear()
                 }
             }
             val ( mobType, shardType ) = event.matches(captureRegex) ?: return@on
