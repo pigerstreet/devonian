@@ -143,6 +143,10 @@ object EtherwarpOverlay : Feature(
 
         on<RenderWorldEvent> { event ->
             failReason = ""
+            // cleared per frame like failReason: the early return for looking at an interactable
+            // block used to leave last frame's target here, and Dungeon Correction would then
+            // cancel a right click on a chest or lever as if it were an etherwarp onto the roof
+            res = null
 
             if (dist == 0) {
                 res = null
