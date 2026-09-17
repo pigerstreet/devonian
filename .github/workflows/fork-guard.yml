@@ -68,7 +68,7 @@ jobs:
           find "$dest" -name '*.sh' -exec sed -i 's/\r$//' {} +
           echo "dir=$dest/.github/fork-guard" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
 
@@ -113,5 +113,14 @@ jobs:
           set -euo pipefail
           head="${{ steps.scan.outputs.head_sha }}"
           [ -n "$head" ] || exit 0
-          git tag -f "guard-last-scan-${TARGET_BRANCH}" "$head"
-          git push -f origin "refs/tags/guard-last-scan-${TARGET_BRANCH}"
+          tag="guard-last-scan-${TARGET_BRANCH}"
+          git fetch --quiet --no-tags origin "+refs/tags/${tag}:refs/tags/${tag}" 2>/dev/null || true
+          current="$(git rev-parse --verify --quiet "refs/tags/${tag}^{commit}" || true)"
+          # never move the bookmark backwards: a dispatch over an older range would
+          # otherwise make every later run re-scan commits it already cleared
+          if [ -n "$current" ] && ! git merge-base --is-ancestor "$current" "$head"; then
+            echo "bookmark stays at ${current:0:9}; ${head:0:9} is not a descendant of it"
+            exit 0
+          fi
+          git tag -f "$tag" "$head"
+          git push -f origin "refs/tags/${tag}"
