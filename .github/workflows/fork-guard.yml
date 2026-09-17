@@ -1,0 +1,117 @@
+name: fork-guard
+
+# Reviews every commit that lands on 26.1 — upstream syncs included — with a Claude
+# agent: flags malicious code, reverts the offending commits, opens an issue and
+# fails the run.
+#
+# The scan logic itself (.github/fork-guard/) is always taken from 26.2 rather than
+# from the pushed tree, so a commit landing on 26.1 cannot tamper with it. Keep the
+# .github/fork-guard/ copies on 26.1 and 26.2 identical when editing them.
+on:
+  push:
+    branches: ['26.1']
+  schedule:
+    # Safety net. Scheduled runs always use the default branch's copy of this file,
+    # so a commit on 26.1 cannot disable this one — it re-scans everything since the
+    # guard-last-scan-26.1 tag.
+    - cron: '23 5 * * *'
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: 'Base commit (older). Empty = resume from the guard-last-scan tag.'
+        required: false
+      head_sha:
+        description: 'Head commit (newer). Empty = tip of the guarded branch.'
+        required: false
+      dry_run:
+        description: 'Report findings only — never revert, push, cancel or file an issue.'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: fork-guard-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  TARGET_BRANCH: '26.1'
+  # Non-empty: guard scripts are read from this branch instead of the pushed tree.
+  GUARD_TRUSTED_REF: '26.2'
+
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: take the guard scripts from the protected branch
+        id: guard
+        run: |
+          set -euo pipefail
+          dest="$RUNNER_TEMP/guard-scripts"
+          mkdir -p "$dest"
+          if [ -n "${GUARD_TRUSTED_REF}" ]; then
+            git archive "origin/${GUARD_TRUSTED_REF}" .github/fork-guard | tar -x -C "$dest"
+          else
+            mkdir -p "$dest/.github/fork-guard"
+            cp -r .github/fork-guard/. "$dest/.github/fork-guard/"
+          fi
+          find "$dest" -name '*.sh' -exec sed -i 's/\r$//' {} +
+          echo "dir=$dest/.github/fork-guard" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: install claude code
+        run: npm install -g @anthropic-ai/claude-code@2.1.274
+
+      - name: scan
+        id: scan
+        env:
+          # orcarouter gateway — set the ORCAROUTER_API_KEY repo secret.
+          # Optional repo variables: SCAN_MODEL (default orcarouter/auto),
+          # SCAN_SMALL_MODEL (default anthropic/claude-haiku-4.5).
+          ANTHROPIC_BASE_URL: https://api.orcarouter.ai
+          ANTHROPIC_AUTH_TOKEN: ${{ secrets.ORCAROUTER_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.SCAN_MODEL || 'orcarouter/auto' }}
+          ANTHROPIC_SMALL_FAST_MODEL: ${{ vars.SCAN_SMALL_MODEL || 'anthropic/claude-haiku-4.5' }}
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.SCAN_SMALL_MODEL || 'deepseek/deepseek-v4.1-flash' }}
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1'
+          GUARD_SCRIPTS_DIR: ${{ steps.guard.outputs.dir }}
+          EVENT_BASE_SHA: ${{ github.event.before }}
+          EVENT_HEAD_SHA: ${{ github.sha }}
+          DISPATCH_BASE_SHA: ${{ inputs.base_sha }}
+          DISPATCH_HEAD_SHA: ${{ inputs.head_sha }}
+        run: bash "$GUARD_SCRIPTS_DIR/scan.sh"
+
+      - name: act on findings
+        # also runs when the scan step itself broke, so a scan that never happened
+        # cannot silently pass
+        if: steps.scan.outputs.verdict != 'CLEAN'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Repo variable FORK_GUARD_DRY_RUN=true turns every run into a report-only
+          # dry run; used while bringing the guard up.
+          DRY_RUN: ${{ inputs.dry_run || vars.FORK_GUARD_DRY_RUN || 'false' }}
+        run: bash "${{ steps.guard.outputs.dir }}/remediate.sh"
+
+      - name: record the scan bookmark
+        if: always() && steps.scan.outputs.verdict == 'CLEAN'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          head="${{ steps.scan.outputs.head_sha }}"
+          [ -n "$head" ] || exit 0
+          git tag -f "guard-last-scan-${TARGET_BRANCH}" "$head"
+          git push -f origin "refs/tags/guard-last-scan-${TARGET_BRANCH}"
