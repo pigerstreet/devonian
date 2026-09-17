@@ -6,7 +6,13 @@ name: fork-guard
 #
 # The scan logic itself (.github/fork-guard/) is always taken from 26.2 rather than
 # from the pushed tree, so a commit landing on 26.1 cannot tamper with it. Keep the
-# .github/fork-guard/ copies on 26.1 and 26.2 identical when editing them.
+# .github/fork-guard/ copies on 26.1 and 26.2 identical when editing them (change 26.2
+# first, then 26.1).
+#
+# That protection depends on 26.2 never receiving an upstream sync: do NOT use Sync fork
+# on 26.2. An upstream commit landing there could rewrite both the guard scripts and this
+# file, and the daily run below uses this same copy — it is the only backstop left once a
+# push on 26.1 has edited this workflow.
 on:
   push:
     branches: ['26.1']
