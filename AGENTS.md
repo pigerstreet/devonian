@@ -119,6 +119,31 @@ git merge --ff-only origin/26.1     # should always be a fast-forward
   patching a file, check `git log upstream/26.1 -- <file>`; if upstream is actively rewriting it,
   keep the hunk tiny or leave it to upstream and report it instead.
 
+**Fork guard — the workflow that scans syncs (`fork-guard.yml`, `.github/fork-guard/`):**
+
+Every push to `26.1` (so every Sync fork) is reviewed by a headless Claude agent before anyone
+trusts it: `scan.sh` triages the pushed range (docs/assets never reach the model), chunks the
+rest, runs up to 4 read-only agent calls, and `remediate.sh` acts on the verdict — `MALICIOUS`
+reverts the offending commits and opens an issue with restore instructions, `SUSPICIOUS` only
+opens an issue. Both push the run red.
+
+- **`26.2` is the trust anchor: never Sync fork it.** A push to `26.1` runs the guard scripts
+  read from `origin/26.2`, not from the pushed tree, so a bad commit on `26.1` cannot neuter the
+  scan it triggers. `26.2` also carries the daily scheduled run (`23 5 * * *`), which re-scans
+  anything since the `guard-last-scan-26.1` tag. Syncing upstream into `26.2` would let an
+  upstream commit edit the guard scripts and the workflow file — the one path that defeats the
+  whole design.
+- **When editing the guard, change `26.2` first, then `26.1`, and keep the three
+  `.github/fork-guard/` files byte-identical on both** (the workflow file too — only the guard
+  scripts are read cross-branch, so drift there is silent).
+- **`guard-last-scan-26.1`** is the incremental bookmark; it only ever moves forward, and a
+  non-`CLEAN` run never advances it, so flagged ranges get re-examined.
+- Repo variable `FORK_GUARD_DRY_RUN=true` makes every run report-only (no revert, push, cancel or
+  issue). Delete it to arm real remediation. `SCAN_MODEL` / `SCAN_SMALL_MODEL` pin the models;
+  the key lives in the `ORCAROUTER_API_KEY` secret.
+- Guard scripts are ordered/quoting-sensitive bash run under `set -uo pipefail`; test a change
+  with `workflow_dispatch` on a small range before trusting it.
+
 **Commit messages** (observed style, all local commits follow it):
 
 - Lowercase conventional prefix: `fix:`, `feat:`, `internal:`, `build:`
